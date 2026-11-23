@@ -100,6 +100,71 @@ const publicTuitions = [
     tutorName: "Jubair Hasan",
     tutorEmail: "jubair@example.com",
   }),
+  makeTuition({
+    title: "Primary School Math Foundations",
+    subject: "Mathematics",
+    classLevel: "Class 1–5",
+    mode: "Offline",
+    location: "Sylhet",
+    monthlyFee: 2500,
+    daysPerWeek: 2,
+    bannerImage: image.math,
+    description: "Playful number sense and homework support for young learners.",
+    tutorName: "Farzana Akter",
+    tutorEmail: "farzana@example.com",
+  }),
+  makeTuition({
+    title: "SSC Physics Crash Course",
+    subject: "Physics",
+    classLevel: "Class 9–10",
+    mode: "Online",
+    location: "Remote",
+    monthlyFee: 3800,
+    daysPerWeek: 4,
+    bannerImage: image.physics,
+    description: "Board-style problem solving and revision in a short batch.",
+    tutorName: "Rakibul Islam",
+    tutorEmail: "rakibul@example.com",
+  }),
+  makeTuition({
+    title: "Python for Absolute Beginners",
+    subject: "Programming",
+    classLevel: "All Levels",
+    mode: "Online",
+    location: "Remote",
+    monthlyFee: 5500,
+    daysPerWeek: 2,
+    bannerImage: image.coding,
+    description: "Learn Python by building small, practical projects.",
+    tutorName: "Sabbir Ahmed",
+    tutorEmail: "sabbir@example.com",
+  }),
+  makeTuition({
+    title: "IELTS Writing Task 2 Lab",
+    subject: "IELTS",
+    classLevel: "All Levels",
+    mode: "Online",
+    location: "Remote",
+    monthlyFee: 4200,
+    daysPerWeek: 3,
+    bannerImage: image.ielts,
+    description: "Essay structure, vocabulary and timed writing feedback.",
+    tutorName: "Tahmina Islam",
+    tutorEmail: "tahmina@example.com",
+  }),
+  makeTuition({
+    title: "Organic Chemistry Basics",
+    subject: "Chemistry",
+    classLevel: "Class 11–12",
+    mode: "Offline",
+    location: "Dhaka",
+    monthlyFee: 4800,
+    daysPerWeek: 3,
+    bannerImage: image.chemistry,
+    description: "Reaction mechanisms made simple with guided practice.",
+    tutorName: "Mahmudul Hasan",
+    tutorEmail: "mahmud@example.com",
+  }),
 ]
 
 const demoTuitions = [
@@ -132,6 +197,69 @@ const demoTuitions = [
   }),
 ]
 
+const paymentSamples = [
+  {
+    userEmail: "tutor@tutor.com",
+    userName: "Tutor",
+    userRole: "tutor",
+    planName: "Pro Tutor",
+    amount: 15,
+    currency: "usd",
+    transactionId: "ML-DEMO-TUTOR-001",
+    stripeSessionId: "cs_demo_tutor_001",
+    paymentStatus: "paid",
+    paidAt: new Date("2026-11-10T10:30:00.000Z").toISOString(),
+  },
+  {
+    userEmail: "student@student.com",
+    userName: "Student",
+    userRole: "student",
+    planName: "Pro Student",
+    amount: 10,
+    currency: "usd",
+    transactionId: "ML-DEMO-STUDENT-001",
+    stripeSessionId: "cs_demo_student_001",
+    paymentStatus: "paid",
+    paidAt: new Date("2026-11-12T14:15:00.000Z").toISOString(),
+  },
+  {
+    userEmail: "rahim@example.com",
+    userName: "Rahim Ahmed",
+    userRole: "tutor",
+    planName: "Pro Tutor",
+    amount: 15,
+    currency: "usd",
+    transactionId: "ML-DEMO-TUTOR-002",
+    stripeSessionId: "cs_demo_tutor_002",
+    paymentStatus: "paid",
+    paidAt: new Date("2026-11-15T09:00:00.000Z").toISOString(),
+  },
+  {
+    userEmail: "ayesha@example.com",
+    userName: "Ayesha Rahman",
+    userRole: "student",
+    planName: "Pro Student",
+    amount: 10,
+    currency: "usd",
+    transactionId: "ML-DEMO-STUDENT-002",
+    stripeSessionId: "cs_demo_student_002",
+    paymentStatus: "paid",
+    paidAt: new Date("2026-11-18T18:45:00.000Z").toISOString(),
+  },
+  {
+    userEmail: "tanvir@example.com",
+    userName: "Tanvir Rahman",
+    userRole: "tutor",
+    planName: "Pro Tutor",
+    amount: 15,
+    currency: "usd",
+    transactionId: "ML-DEMO-TUTOR-003",
+    stripeSessionId: "cs_demo_tutor_003",
+    paymentStatus: "paid",
+    paidAt: new Date("2026-11-20T11:20:00.000Z").toISOString(),
+  },
+]
+
 function makeApplication(tuition, application) {
   return {
     tuitionId: tuition.id,
@@ -148,10 +276,21 @@ function makeApplication(tuition, application) {
 export async function seedDatabase() {
   const tuitions = db.collection("tuitions")
   const applications = db.collection("applications")
+  const payments = db.collection("payments")
 
   if ((await tuitions.countDocuments()) === 0) {
     await tuitions.insertMany([...publicTuitions, ...demoTuitions])
     console.log("Seeded tuition samples.")
+  } else {
+    // Add any newly introduced samples without touching existing listings.
+    for (const tuition of publicTuitions) {
+      await tuitions.updateOne(
+        { title: tuition.title },
+        { $setOnInsert: tuition },
+        { upsert: true }
+      )
+    }
+    console.log("Synced tuition samples.")
   }
 
   if ((await applications.countDocuments()) === 0) {
@@ -190,5 +329,10 @@ export async function seedDatabase() {
       ])
       console.log("Seeded application samples.")
     }
+  }
+
+  if ((await payments.countDocuments()) === 0) {
+    await payments.insertMany(paymentSamples)
+    console.log("Seeded payment samples.")
   }
 }
