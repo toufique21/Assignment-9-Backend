@@ -1,32 +1,31 @@
-import express from "express"
-import { MongoClient } from 'mongodb';
-import "dotenv/config"
 import cors from "cors"
+import express from "express"
+import "dotenv/config"
+
+import { db } from "./db.js"
+import { applicationRoutes } from "./routes/applications.js"
+import { tuitionRoutes } from "./routes/tuitions.js"
+import { seedDatabase } from "./seed.js"
 
 const app = express()
-const port = 8000
+const port = process.env.PORT || 8000
 
 app.use(express.json())
 app.use(cors())
 
-const client = new MongoClient(`mongodb+srv://${process.env.DB_NAME}:${process.env.DB_PASS}@cluster0.5hxu0j4.mongodb.net/`);
+app.get("/", (req, res) => {
+  res.send("Mentor - Lagbe")
+})
 
-export async function connectToMongoDB() {
-  try {
-    await client.connect();
-    console.log("You successfully connected to MongoDB!");
-    return client;
-  } catch (err) {
-    console.dir(err);
-  }
-}
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true })
+})
 
-const connectedClient = await connectToMongoDB() 
+await seedDatabase()
 
-app.get('/', (req, res) => {
-  res.send('Mentor - Lagbe');
-});
+app.use("/tuitions", tuitionRoutes(db))
+app.use("/applications", applicationRoutes(db))
 
 app.listen(port, () => {
-  console.log(`Mentor-Lagbe listening on port ${port}`);
-});
+  console.log(`Mentor-Lagbe listening on port ${port}`)
+})
