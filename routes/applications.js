@@ -71,6 +71,22 @@ export function applicationRoutes(db) {
         return
       }
 
+      const student = await db.collection("user").findOne(
+        { email: studentEmail },
+        { projection: { plan: 1 } }
+      )
+      const applicationCount = await applications.countDocuments({
+        studentEmail,
+      })
+
+      if (student?.plan !== "pro" && applicationCount >= 5) {
+        response.status(403).json({
+          message:
+            "Free students can apply to up to 5 tuitions. Upgrade to Premium to apply more.",
+        })
+        return
+      }
+
       const document = {
         tuitionId,
         tuitionTitle,

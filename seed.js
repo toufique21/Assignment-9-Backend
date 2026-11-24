@@ -197,69 +197,6 @@ const demoTuitions = [
   }),
 ]
 
-const paymentSamples = [
-  {
-    userEmail: "tutor@tutor.com",
-    userName: "Tutor",
-    userRole: "tutor",
-    planName: "Pro Tutor",
-    amount: 15,
-    currency: "usd",
-    transactionId: "ML-DEMO-TUTOR-001",
-    stripeSessionId: "cs_demo_tutor_001",
-    paymentStatus: "paid",
-    paidAt: new Date("2026-11-10T10:30:00.000Z").toISOString(),
-  },
-  {
-    userEmail: "student@student.com",
-    userName: "Student",
-    userRole: "student",
-    planName: "Pro Student",
-    amount: 10,
-    currency: "usd",
-    transactionId: "ML-DEMO-STUDENT-001",
-    stripeSessionId: "cs_demo_student_001",
-    paymentStatus: "paid",
-    paidAt: new Date("2026-11-12T14:15:00.000Z").toISOString(),
-  },
-  {
-    userEmail: "rahim@example.com",
-    userName: "Rahim Ahmed",
-    userRole: "tutor",
-    planName: "Pro Tutor",
-    amount: 15,
-    currency: "usd",
-    transactionId: "ML-DEMO-TUTOR-002",
-    stripeSessionId: "cs_demo_tutor_002",
-    paymentStatus: "paid",
-    paidAt: new Date("2026-11-15T09:00:00.000Z").toISOString(),
-  },
-  {
-    userEmail: "ayesha@example.com",
-    userName: "Ayesha Rahman",
-    userRole: "student",
-    planName: "Pro Student",
-    amount: 10,
-    currency: "usd",
-    transactionId: "ML-DEMO-STUDENT-002",
-    stripeSessionId: "cs_demo_student_002",
-    paymentStatus: "paid",
-    paidAt: new Date("2026-11-18T18:45:00.000Z").toISOString(),
-  },
-  {
-    userEmail: "tanvir@example.com",
-    userName: "Tanvir Rahman",
-    userRole: "tutor",
-    planName: "Pro Tutor",
-    amount: 15,
-    currency: "usd",
-    transactionId: "ML-DEMO-TUTOR-003",
-    stripeSessionId: "cs_demo_tutor_003",
-    paymentStatus: "paid",
-    paidAt: new Date("2026-11-20T11:20:00.000Z").toISOString(),
-  },
-]
-
 const studentApplicationSamples = [
   {
     title: "HSC Mathematics Mastery Batch",
@@ -301,7 +238,6 @@ function makeApplication(tuition, application) {
 export async function seedDatabase() {
   const tuitions = db.collection("tuitions")
   const applications = db.collection("applications")
-  const payments = db.collection("payments")
 
   if ((await tuitions.countDocuments()) === 0) {
     await tuitions.insertMany([...publicTuitions, ...demoTuitions])
@@ -373,10 +309,5 @@ export async function seedDatabase() {
       },
       { upsert: true }
     )
-  }
-
-  if ((await payments.countDocuments()) === 0) {
-    await payments.insertMany(paymentSamples)
-    console.log("Seeded payment samples.")
   }
 }

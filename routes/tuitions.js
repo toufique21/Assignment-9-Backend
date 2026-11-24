@@ -104,6 +104,19 @@ export function tuitionRoutes(db) {
         return
       }
 
+      const tutor = await db
+        .collection("user")
+        .findOne({ email: tutorEmail }, { projection: { plan: 1 } })
+      const tuitionCount = await tuitions.countDocuments({ tutorEmail })
+
+      if (tutor?.plan !== "pro" && tuitionCount >= 2) {
+        response.status(403).json({
+          message:
+            "Free tutors can post up to 2 tuitions. Upgrade to Premium to post more.",
+        })
+        return
+      }
+
       const document = {
         title,
         subject,
