@@ -23,8 +23,11 @@ export function applicationRoutes(db) {
 
   router.get("/", async (request, response) => {
     try {
-      const { tutorEmail } = request.query
-      const filter = tutorEmail ? { tutorEmail } : {}
+      const { tutorEmail, studentEmail } = request.query
+      const filter = {}
+
+      if (tutorEmail) filter.tutorEmail = tutorEmail
+      if (studentEmail) filter.studentEmail = studentEmail
 
       const list = await applications
         .find(filter)
@@ -45,6 +48,7 @@ export function applicationRoutes(db) {
         subject,
         monthlyFee,
         tutorEmail,
+        tutorName,
         studentName,
         studentEmail,
         studentPhone,
@@ -59,12 +63,21 @@ export function applicationRoutes(db) {
         return
       }
 
+      const duplicate = await applications.findOne({ tuitionId, studentEmail })
+      if (duplicate) {
+        response.status(409).json({
+          message: "You have already applied for this tuition.",
+        })
+        return
+      }
+
       const document = {
         tuitionId,
         tuitionTitle,
         subject,
         monthlyFee: Number(monthlyFee) || 0,
         tutorEmail,
+        tutorName: tutorName || "MentorLagbe Tutor",
         studentName,
         studentEmail,
         studentPhone: studentPhone || "",
@@ -106,6 +119,31 @@ export function applicationRoutes(db) {
       }
 
       response.json(serialize(result))
+    } catch (error) {
+      fail(response, error)
+    }
+  })
+
+  router.delete("/:id", async (request, response) => {
+    try {
+      const { id } = request.params
+      if (!validId(id, response)) return
+
+      const application = await applications.findOne({ _id: new ObjectId(id) })
+      if (!application) {
+        response.status(404).json({ message: "Application not found." })
+        return
+      }
+
+      if (application.status !== "pending") {
+        response.status(400).json({
+          message: "Only pending applications can be cancelled.",
+        })
+        return
+      }
+
+      await applications.deleteOne({ _id: new ObjectId(id) })
+      response.json({ ok: true })
     } catch (error) {
       fail(response, error)
     }

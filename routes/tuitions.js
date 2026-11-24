@@ -42,7 +42,40 @@ export function tuitionRoutes(db) {
       if (isActive !== undefined) filter.isActive = isActive === "true"
 
       const list = await tuitions.find(filter).sort({ createdAt: -1 }).toArray()
-      response.json(list.map(serialize))
+      const tutorEmails = [
+        ...new Set(list.map((tuition) => tuition.tutorEmail).filter(Boolean)),
+      ]
+
+      const tutorUsers = tutorEmails.length
+        ? await db
+            .collection("user")
+            .find(
+              { email: { $in: tutorEmails } },
+              {
+                projection: {
+                  name: 1,
+                  email: 1,
+                  image: 1,
+                  role: 1,
+                  bio: 1,
+                  phone: 1,
+                  createdAt: 1,
+                },
+              }
+            )
+            .toArray()
+        : []
+
+      const tutorProfiles = new Map(
+        tutorUsers.map((user) => [user.email, serialize(user)])
+      )
+
+      response.json(
+        list.map((tuition) => ({
+          ...serialize(tuition),
+          tutorProfile: tutorProfiles.get(tuition.tutorEmail) ?? null,
+        }))
+      )
     } catch (error) {
       fail(response, error)
     }

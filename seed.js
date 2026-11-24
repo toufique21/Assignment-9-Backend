@@ -260,6 +260,30 @@ const paymentSamples = [
   },
 ]
 
+const studentApplicationSamples = [
+  {
+    title: "HSC Mathematics Mastery Batch",
+    status: "pending",
+    studentPhone: "+880 1711-000111",
+    preferredSchedule: "Monday, Wednesday — 6 PM",
+    studentNote: "I need extra practice on differentiation.",
+  },
+  {
+    title: "Full-Stack Web Development",
+    status: "accepted",
+    studentPhone: "+880 1711-000222",
+    preferredSchedule: "Saturday and Tuesday — 7 PM",
+    studentNote: "I want to build a portfolio project.",
+  },
+  {
+    title: "IELTS Intensive: Target 7.0+",
+    status: "rejected",
+    studentPhone: "+880 1711-000333",
+    preferredSchedule: "Friday — 5 PM",
+    studentNote: "Preparing for the IELTS exam next month.",
+  },
+]
+
 function makeApplication(tuition, application) {
   return {
     tuitionId: tuition.id,
@@ -267,6 +291,7 @@ function makeApplication(tuition, application) {
     subject: tuition.subject,
     monthlyFee: tuition.monthlyFee,
     tutorEmail: tuition.tutorEmail,
+    tutorName: tuition.tutorName,
     status: "pending",
     appliedAt: new Date().toISOString(),
     ...application,
@@ -329,6 +354,25 @@ export async function seedDatabase() {
       ])
       console.log("Seeded application samples.")
     }
+  }
+
+  // Keep the demo student's applications connected to the current seed tuitions.
+  for (const sample of studentApplicationSamples) {
+    const tuition = serialize(await tuitions.findOne({ title: sample.title }))
+
+    if (!tuition) continue
+
+    await applications.updateOne(
+      { tuitionId: tuition.id, studentEmail: "student@student.com" },
+      {
+        $setOnInsert: makeApplication(tuition, {
+          ...sample,
+          studentName: "Student",
+          studentEmail: "student@student.com",
+        }),
+      },
+      { upsert: true }
+    )
   }
 
   if ((await payments.countDocuments()) === 0) {
