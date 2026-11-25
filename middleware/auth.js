@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto"
 
-export function authMiddleware(req, res, next) {
+export function varifyAPI(req, res, next) {
     const header = req.headers.authorization || ""
     const token = header.startsWith("Bearer ") ? header.slice(7) : ""
 
