@@ -6,6 +6,7 @@ import { db } from "./db.js"
 import { applicationRoutes } from "./routes/applications.js"
 import { tuitionRoutes } from "./routes/tuitions.js"
 import { seedDatabase } from "./seed.js"
+import { varifyAPI } from "./middleware/auth.js"
 
 const app = express()
 const port = process.env.PORT || 8000
@@ -23,7 +24,7 @@ app.get("/api/health", (req, res) => {
 
 await seedDatabase()
 
-app.use("/tuitions", tuitionRoutes(db))
+app.use("/tuitions", varifyAPI, tuitionRoutes(db))
 app.use("/applications", applicationRoutes(db))
 
 app.listen(port, () => {
