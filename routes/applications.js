@@ -2,6 +2,7 @@ import { Router } from "express"
 import { ObjectId } from "mongodb"
 
 import { serialize } from "../serialize.js"
+import { requireRole, varifyAPI } from "../middleware/auth.js"
 
 const statuses = ["pending", "accepted", "rejected"]
 
@@ -17,49 +18,82 @@ function validId(id, response) {
   return true
 }
 
+function isOwner(request, email) {
+  return request.user?.role === "admin" || request.user?.email === email
+}
+
 export function applicationRoutes(db) {
   const router = Router()
   const applications = db.collection("applications")
+  const tuitions = db.collection("tuitions")
 
-  router.get("/", async (request, response) => {
-    try {
-      const { tutorEmail, studentEmail } = request.query
-      const filter = {}
+  router.get(
+    "/",
+    varifyAPI,
+    requireRole("student", "tutor", "admin"),
+    async (request, response) => {
+      try {
+        const { tutorEmail, studentEmail } = request.query
+        const filter = {}
 
-      if (tutorEmail) filter.tutorEmail = tutorEmail
-      if (studentEmail) filter.studentEmail = studentEmail
+        if (tutorEmail) {
+          if (!isOwner(request, tutorEmail)) {
+            response.status(403).json({ message: "Access denied." })
+            return
+          }
+          filter.tutorEmail = tutorEmail
+        }
 
-      const list = await applications
-        .find(filter)
-        .sort({ appliedAt: -1 })
-        .toArray()
+        if (studentEmail) {
+          if (!isOwner(request, studentEmail)) {
+            response.status(403).json({ message: "Access denied." })
+            return
+          }
+          filter.studentEmail = studentEmail
+        }
 
-      response.json(list.map(serialize))
-    } catch (error) {
-      fail(response, error)
+        if (!tutorEmail && !studentEmail && request.user.role !== "admin") {
+          response.status(403).json({ message: "Access denied." })
+          return
+        }
+
+        const list = await applications
+          .find(filter)
+          .sort({ appliedAt: -1 })
+          .toArray()
+
+        response.json(list.map(serialize))
+      } catch (error) {
+        fail(response, error)
+      }
     }
-  })
+  )
 
-  router.post("/", async (request, response) => {
+  router.post("/", varifyAPI, requireRole("student"), async (request, response) => {
     try {
       const {
         tuitionId,
-        tuitionTitle,
-        subject,
-        monthlyFee,
-        tutorEmail,
-        tutorName,
         studentName,
-        studentEmail,
         studentPhone,
         preferredSchedule,
         studentNote,
       } = request.body
+      const studentEmail = request.user.email
 
-      if (!tuitionId || !studentName || !studentEmail) {
-        response.status(400).json({
-          message: "tuitionId, studentName and studentEmail are required.",
-        })
+      if (!ObjectId.isValid(tuitionId)) {
+        response.status(400).json({ message: "Invalid tuition id." })
+        return
+      }
+
+      const tuition = await tuitions.findOne({ _id: new ObjectId(tuitionId) })
+
+      if (!tuition) {
+        response.status(404).json({ message: "Tuition not found." })
+        return
+      }
+
+      if (tuition.approvalStatus !== "approved" || !tuition.isActive) {
+        response.status(400).json({ message: "Tuition is not available." })
         return
       }
 
@@ -89,12 +123,12 @@ export function applicationRoutes(db) {
 
       const document = {
         tuitionId,
-        tuitionTitle,
-        subject,
-        monthlyFee: Number(monthlyFee) || 0,
-        tutorEmail,
-        tutorName: tutorName || "MentorLagbe Tutor",
-        studentName,
+        tuitionTitle: tuition.title,
+        subject: tuition.subject,
+        monthlyFee: Number(tuition.monthlyFee) || 0,
+        tutorEmail: tuition.tutorEmail,
+        tutorName: tuition.tutorName || "MentorLagbe Tutor",
+        studentName: studentName || request.user.name || "Student",
         studentEmail,
         studentPhone: studentPhone || "",
         preferredSchedule: preferredSchedule || "",
@@ -112,10 +146,20 @@ export function applicationRoutes(db) {
     }
   })
 
-  router.patch("/:id/status", async (request, response) => {
+  router.patch("/:id/status", varifyAPI, requireRole("tutor", "admin"), async (request, response) => {
     try {
       const { id } = request.params
       if (!validId(id, response)) return
+
+      const application = await applications.findOne({ _id: new ObjectId(id) })
+      if (!application) {
+        response.status(404).json({ message: "Application not found." })
+        return
+      }
+      if (!isOwner(request, application.tutorEmail)) {
+        response.status(403).json({ message: "Access denied." })
+        return
+      }
 
       const { status } = request.body
       if (!statuses.includes(status)) {
@@ -140,7 +184,7 @@ export function applicationRoutes(db) {
     }
   })
 
-  router.delete("/:id", async (request, response) => {
+  router.delete("/:id", varifyAPI, requireRole("student", "admin"), async (request, response) => {
     try {
       const { id } = request.params
       if (!validId(id, response)) return
@@ -148,6 +192,10 @@ export function applicationRoutes(db) {
       const application = await applications.findOne({ _id: new ObjectId(id) })
       if (!application) {
         response.status(404).json({ message: "Application not found." })
+        return
+      }
+      if (!isOwner(request, application.studentEmail)) {
+        response.status(403).json({ message: "Access denied." })
         return
       }
 

@@ -2,6 +2,11 @@ import { Router } from "express"
 import { ObjectId } from "mongodb"
 
 import { serialize } from "../serialize.js"
+import {
+  optionalAuth,
+  requireRole,
+  varifyAPI,
+} from "../middleware/auth.js"
 
 const editableFields = [
   "title",
@@ -27,17 +32,40 @@ function validId(id, response) {
   return true
 }
 
+function isOwner(request, email) {
+  return request.user?.role === "admin" || request.user?.email === email
+}
+
 export function tuitionRoutes(db) {
   const router = Router()
   const tuitions = db.collection("tuitions")
   const applications = db.collection("applications")
 
-  router.get("/", async (request, response) => {
+  router.get("/", optionalAuth, async (request, response) => {
     try {
       const { tutorEmail, approvalStatus, isActive } = request.query
       const filter = {}
 
-      if (tutorEmail) filter.tutorEmail = tutorEmail
+      if (tutorEmail) {
+        if (!isOwner(request, tutorEmail)) {
+          response.status(403).json({ message: "Access denied." })
+          return
+        }
+        filter.tutorEmail = tutorEmail
+      } else if (
+        approvalStatus !== "approved" ||
+        isActive !== "true"
+      ) {
+        if (!request.user) {
+          response.status(401).json({ message: "Unauthorized." })
+          return
+        }
+        if (request.user.role !== "admin") {
+          response.status(403).json({ message: "Access denied." })
+          return
+        }
+      }
+
       if (approvalStatus) filter.approvalStatus = approvalStatus
       if (isActive !== undefined) filter.isActive = isActive === "true"
 
@@ -81,7 +109,7 @@ export function tuitionRoutes(db) {
     }
   })
 
-  router.post("/", async (request, response) => {
+  router.post("/", varifyAPI, requireRole("tutor"), async (request, response) => {
     try {
       const {
         title,
@@ -93,14 +121,12 @@ export function tuitionRoutes(db) {
         daysPerWeek,
         bannerImage,
         description,
-        tutorEmail,
         tutorName,
       } = request.body
+      const tutorEmail = request.user.email
 
-      if (!title || !subject || !tutorEmail) {
-        response
-          .status(400)
-          .json({ message: "Title, subject and tutorEmail are required." })
+      if (!title || !subject) {
+        response.status(400).json({ message: "Title and subject are required." })
         return
       }
 
@@ -128,7 +154,7 @@ export function tuitionRoutes(db) {
         bannerImage: bannerImage || "",
         description: description || "",
         tutorEmail,
-        tutorName: tutorName || "Tutor",
+        tutorName: tutorName || request.user.name || "Tutor",
         approvalStatus: "pending",
         isActive: true,
         createdAt: new Date().toISOString(),
@@ -141,38 +167,63 @@ export function tuitionRoutes(db) {
     }
   })
 
-  router.patch("/:id/status", async (request, response) => {
+  router.patch(
+    "/:id/status",
+    varifyAPI,
+    requireRole("tutor", "admin"),
+    async (request, response) => {
+      try {
+        const { id } = request.params
+        if (!validId(id, response)) return
+
+        const existing = await tuitions.findOne({ _id: new ObjectId(id) })
+        if (!existing) {
+          response.status(404).json({ message: "Tuition not found." })
+          return
+        }
+        if (!isOwner(request, existing.tutorEmail)) {
+          response.status(403).json({ message: "Access denied." })
+          return
+        }
+
+        const { isActive } = request.body
+        if (typeof isActive !== "boolean") {
+          response.status(400).json({ message: "isActive must be a boolean." })
+          return
+        }
+
+        const result = await tuitions.findOneAndUpdate(
+          { _id: new ObjectId(id) },
+          { $set: { isActive } },
+          { returnDocument: "after" }
+        )
+
+        if (!result) {
+          response.status(404).json({ message: "Tuition not found." })
+          return
+        }
+
+        response.json(serialize(result))
+      } catch (error) {
+        fail(response, error)
+      }
+    }
+  )
+
+  router.patch("/:id", varifyAPI, requireRole("tutor", "admin"), async (request, response) => {
     try {
       const { id } = request.params
       if (!validId(id, response)) return
 
-      const { isActive } = request.body
-      if (typeof isActive !== "boolean") {
-        response.status(400).json({ message: "isActive must be a boolean." })
-        return
-      }
-
-      const result = await tuitions.findOneAndUpdate(
-        { _id: new ObjectId(id) },
-        { $set: { isActive } },
-        { returnDocument: "after" }
-      )
-
-      if (!result) {
+      const existing = await tuitions.findOne({ _id: new ObjectId(id) })
+      if (!existing) {
         response.status(404).json({ message: "Tuition not found." })
         return
       }
-
-      response.json(serialize(result))
-    } catch (error) {
-      fail(response, error)
-    }
-  })
-
-  router.patch("/:id", async (request, response) => {
-    try {
-      const { id } = request.params
-      if (!validId(id, response)) return
+      if (!isOwner(request, existing.tutorEmail)) {
+        response.status(403).json({ message: "Access denied." })
+        return
+      }
 
       const updates = {}
       for (const field of editableFields) {
@@ -201,10 +252,20 @@ export function tuitionRoutes(db) {
     }
   })
 
-  router.delete("/:id", async (request, response) => {
+  router.delete("/:id", varifyAPI, requireRole("tutor", "admin"), async (request, response) => {
     try {
       const { id } = request.params
       if (!validId(id, response)) return
+
+      const existing = await tuitions.findOne({ _id: new ObjectId(id) })
+      if (!existing) {
+        response.status(404).json({ message: "Tuition not found." })
+        return
+      }
+      if (!isOwner(request, existing.tutorEmail)) {
+        response.status(403).json({ message: "Access denied." })
+        return
+      }
 
       await tuitions.deleteOne({ _id: new ObjectId(id) })
       await applications.deleteMany({ tuitionId: id })
