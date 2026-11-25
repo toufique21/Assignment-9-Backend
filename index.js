@@ -25,7 +25,7 @@ app.get("/api/health", (req, res) => {
 await seedDatabase()
 
 app.use("/tuitions", varifyAPI, tuitionRoutes(db))
-app.use("/applications", applicationRoutes(db))
+app.use("/applications", varifyAPI , applicationRoutes(db))
 
 app.listen(port, () => {
   console.log(`Mentor-Lagbe listening on port ${port}`)
