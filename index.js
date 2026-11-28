@@ -30,3 +30,5 @@ app.use("/applications", applicationRoutes(db))
 app.listen(port, () => {
   console.log(`Mentor-Lagbe listening on port ${port}`)
 })
+
+export default app;
